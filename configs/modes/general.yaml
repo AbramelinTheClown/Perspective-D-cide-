@@ -1,0 +1,145 @@
+# General Mode Configuration
+# Standard document processing and analysis
+
+mode: general
+description: "General document processing and analysis"
+version: "1.0"
+
+# Task configuration
+tasks:
+  summary:
+    enabled: true
+    description: "Extract summaries and key points"
+    models:
+      - lmstudio
+      - anthropic
+      - gemini
+    max_tokens: 1024
+    temperature: 0.2
+    
+  entities:
+    enabled: true
+    description: "Extract named entities and concepts"
+    models:
+      - anthropic
+      - xai
+      - deepseek
+    max_tokens: 512
+    temperature: 0.1
+    
+  triples:
+    enabled: true
+    description: "Extract subject-predicate-object triples"
+    models:
+      - anthropic
+      - xai
+    max_tokens: 512
+    temperature: 0.1
+    
+  qa_pairs:
+    enabled: true
+    description: "Generate question-answer pairs"
+    models:
+      - lmstudio
+      - anthropic
+      - gemini
+    max_tokens: 1024
+    temperature: 0.3
+    
+  topics:
+    enabled: true
+    description: "Classify topics and themes"
+    models:
+      - lmstudio
+      - anthropic
+    max_tokens: 256
+    temperature: 0.2
+
+# Chunking configuration
+chunking:
+  method: "fastcdc"
+  min_size: 100
+  max_size: 2000
+  target_size: 1000
+  overlap: 100
+  
+# Deduplication settings
+deduplication:
+  simhash_threshold: 0.85
+  minhash_threshold: 0.80
+  vector_threshold: 0.92
+  lsh_bands: 10
+  lsh_rows: 5
+
+# Validation rules
+validation:
+  require_evidence_spans: true
+  self_consistency: 3
+  critic: true
+  adjudicator: true
+  quality_threshold: 0.8
+
+# Routing policy
+routing:
+  local_first: true
+  allow_cloud_for:
+    - summary
+    - entities
+    - triples
+    - qa_pairs
+    - topics
+  pii_level_max_cloud: 1
+  cost_optimization: true
+
+# Output schemas
+schemas:
+  summary:
+    - summary_text: str
+    - keypoints: List[str]
+    - evidence_spans: List[Dict[str, int]]
+    - confidence: float
+    
+  entities:
+    - entity_text: str
+    - entity_type: str
+    - start: int
+    - end: int
+    - confidence: float
+    
+  triples:
+    - subject: str
+    - predicate: str
+    - object: str
+    - spans: Dict[str, Dict[str, int]]
+    - confidence: float
+    
+  qa_pairs:
+    - question: str
+    - answer: str
+    - answer_type: str  # extractive or abstractive
+    - evidence_spans: List[Dict[str, int]]
+    - confidence: float
+    
+  topics:
+    - topic: str
+    - confidence: float
+    - keywords: List[str]
+    - evidence_spans: List[Dict[str, int]]
+
+# Quality metrics
+quality_metrics:
+  coverage_min: 0.85
+  duplication_max: 0.10
+  hallucination_max: 0.02
+  evidence_span_coverage_min: 0.80
+  confidence_min: 0.7
+
+# Export settings
+exports:
+  formats:
+    - jsonl
+    - csv
+    - parquet
+  include_metadata: true
+  include_evidence_spans: true
+  include_confidence_scores: true 

@@ -1,0 +1,86 @@
+# Dev Vector DB Hub Configuration
+# Central knowledge hub for cross-project memory and insights
+
+hub:
+  # Connection settings
+  rest_host: localhost
+  rest_port: 8003
+  mcp_host: localhost
+  mcp_port: 9999
+  
+  # API endpoints
+  base_url: http://localhost:8003
+  search_endpoint: /search
+  store_endpoint: /store
+  projects_endpoint: /projects
+  stats_endpoint: /stats
+  
+  # Authentication
+  api_key: ""  # Set via environment variable HUB_API_KEY
+  project_id: ""  # Set per project
+  
+  # Embedding configuration
+  embedding_model: "all-MiniLM-L6-v2"
+  embedding_dimension: 384
+  distance_metric: "cosine"
+  
+  # Content types for hub storage
+  content_types:
+    - pattern      # Algorithmic insights, prompts, plan templates
+    - concept      # Design decisions, architectural patterns
+    - documentation # Dataset manifests, playbooks, readmes
+    - idea         # New hypotheses, ablation takeaways
+    - code         # Code snippets, implementations
+  
+  # Sync policies
+  sync_policies:
+    # What gets pushed to hub (default: derived insights only)
+    push_patterns: true
+    push_concepts: true
+    push_documentation: true
+    push_ideas: true
+    push_qa_samples: false  # Set to true for anonymized QA samples
+    
+    # Privacy settings
+    anonymize_pii: true
+    remove_sensitive_metadata: true
+    cross_project_search: false  # Enable only when permitted
+    
+    # Quality thresholds
+    min_confidence: 0.7
+    min_coverage: 0.8
+    max_duplication: 0.1
+  
+  # MCP integration
+  mcp:
+    enabled: true
+    tools:
+      - vector_db_query
+      - vector_db_store
+      - development_coordinate
+      - get_project_context
+    
+  # REST API integration
+  rest:
+    enabled: true
+    timeout_seconds: 30
+    max_retries: 3
+    retry_backoff: 2.0
+    
+  # Project management
+  projects:
+    auto_register: true
+    default_access_level: "read_write"
+    isolation_enabled: true
+    
+  # Analytics and monitoring
+  analytics:
+    track_sync_metrics: true
+    track_search_queries: true
+    track_project_usage: true
+    
+  # Caching
+  cache:
+    enabled: true
+    ttl_seconds: 3600
+    max_size: 1000 

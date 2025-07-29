@@ -1,0 +1,191 @@
+# Fiction Mode Configuration
+# Literary analysis and character mapping
+
+mode: fiction
+description: "Literary analysis and character mapping"
+version: "1.0"
+
+# Task configuration
+tasks:
+  summary:
+    enabled: true
+    description: "Extract chapter and scene summaries"
+    models:
+      - lmstudio
+      - anthropic
+      - gemini
+    max_tokens: 1024
+    temperature: 0.2
+    
+  entities:
+    enabled: true
+    description: "Extract character names and locations"
+    models:
+      - anthropic
+      - xai
+      - deepseek
+    max_tokens: 512
+    temperature: 0.1
+    
+  characters:
+    enabled: true
+    description: "Extract character information and relationships"
+    models:
+      - anthropic
+      - xai
+    max_tokens: 1024
+    temperature: 0.2
+    
+  timeline:
+    enabled: true
+    description: "Extract timeline and events"
+    models:
+      - anthropic
+      - gemini
+    max_tokens: 1024
+    temperature: 0.2
+    
+  dialogue_acts:
+    enabled: true
+    description: "Extract dialogue and speech acts"
+    models:
+      - anthropic
+      - xai
+    max_tokens: 512
+    temperature: 0.1
+    
+  themes:
+    enabled: true
+    description: "Extract themes and motifs"
+    models:
+      - anthropic
+      - gemini
+    max_tokens: 512
+    temperature: 0.2
+    
+  style:
+    enabled: true
+    description: "Analyze writing style and techniques"
+    models:
+      - anthropic
+      - gemini
+    max_tokens: 1024
+    temperature: 0.3
+
+# Chunking configuration (fiction-specific)
+chunking:
+  method: "scene_aware"
+  min_size: 200
+  max_size: 3000
+  target_size: 1500
+  overlap: 200
+  scene_detection: true
+  quote_merge: true
+  dialogue_aware: true
+
+# Deduplication settings
+deduplication:
+  simhash_threshold: 0.90  # Higher threshold for fiction
+  minhash_threshold: 0.85
+  vector_threshold: 0.95
+  lsh_bands: 12
+  lsh_rows: 6
+
+# Validation rules
+validation:
+  require_evidence_spans: true
+  self_consistency: 3
+  critic: true
+  adjudicator: true
+  quality_threshold: 0.8
+  character_consistency: true
+  timeline_consistency: true
+
+# Routing policy
+routing:
+  local_first: true
+  allow_cloud_for:
+    - timeline
+    - themes
+    - style
+    - dialogue_acts
+  pii_level_max_cloud: 1
+  cost_optimization: true
+
+# Output schemas
+schemas:
+  summary:
+    - summary_text: str
+    - scene_type: str  # chapter, scene, section
+    - key_events: List[str]
+    - evidence_spans: List[Dict[str, int]]
+    - confidence: float
+    
+  entities:
+    - entity_text: str
+    - entity_type: str  # character, location, object
+    - start: int
+    - end: int
+    - confidence: float
+    
+  characters:
+    - name: str
+    - aliases: List[str]
+    - role: str  # protagonist, antagonist, supporting
+    - first_seen: str
+    - attributes: Dict[str, str]
+    - relationships: List[Dict[str, str]]
+    - evidence_spans: List[Dict[str, int]]
+    - confidence: float
+    
+  timeline:
+    - when: str  # absolute or relative time
+    - where: str
+    - actors: List[str]
+    - action: str
+    - consequences: List[str]
+    - evidence_spans: List[Dict[str, int]]
+    - confidence: float
+    
+  dialogue_acts:
+    - speaker: str
+    - addressee: str
+    - act_type: str  # ask, answer, persuade, reveal, etc.
+    - quote_text: str
+    - spans: List[Dict[str, int]]
+    - confidence: float
+    
+  themes:
+    - theme: str
+    - motif_examples: List[str]
+    - confidence: float
+    - spans: List[Dict[str, int]]
+    
+  style:
+    - readability_score: float
+    - sentence_length_stats: Dict[str, float]
+    - figurative_devices: List[str]
+    - pov: str  # 1st, 3rd omni, 3rd limited
+    - confidence: float
+
+# Quality metrics
+quality_metrics:
+  coverage_min: 0.85
+  duplication_max: 0.08  # Lower for fiction
+  hallucination_max: 0.01
+  evidence_span_coverage_min: 0.85
+  confidence_min: 0.75
+  character_consistency_min: 0.9
+  timeline_consistency_min: 0.9
+
+# Export settings
+exports:
+  formats:
+    - jsonl
+    - csv
+    - parquet
+  include_metadata: true
+  include_evidence_spans: true
+  include_confidence_scores: true
+  include_character_graph: true
+  include_timeline_graph: true 
