@@ -1,4 +1,5 @@
 🧠 Perspective D<cide> — Recursive Symbolic Operating Substrate
+
 "Decision is collapse. Perspective is recursion."
 
 Perspective D<cide> is a cognitive-symbolic operating system and recursive programming framework where logic is embodied, decisions collapse uncertainty, and computation unfolds through symbols, rhythm, and meaning.
@@ -11,8 +12,6 @@ It combines symbolic reasoning, Tarot-based cognition, entropy-scored glyphs, an
 🧱 Bone–Blob–Biz Filesystem — Immutable + mutable JSON layers for structure, state, and memory.
 
 🧠 Cognitive Loop — sense → map → weigh → recall → act mimics human cognition.
-
-🜁 Tarot-Driven Symbolic Logic — Maps actions and components to WANDS, CUPS, SWORDS, PENTACLES, SPIRIT.
 
 🧩 Glyph Execution & UI Injection — HTML and code are generated from symbol contracts and glyph collapse.
 
