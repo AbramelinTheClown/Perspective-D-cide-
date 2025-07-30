@@ -15,7 +15,7 @@ from cli.utils.logging import get_logger
 from schemas.base import FileMetadata, ChunkMetadata, RunMetadata
 from pipeline.ingest.watcher import FileWatcher
 from pipeline.ingest.parser import DocumentParser
-from pipeline.normalize.chunker import ContentChunker
+from pipeline.normalize.chunker import DocumentChunker
 from pipeline.normalize.dedup import Deduplicator
 from pipeline.monitoring.gpu import GPUMonitor
 
@@ -44,7 +44,7 @@ def files(
         # Initialize components
         gpu_monitor = GPUMonitor()
         parser = DocumentParser()
-        chunker = ContentChunker()
+        chunker = DocumentChunker()
         deduplicator = Deduplicator()
         
         # Create output directory
@@ -177,7 +177,7 @@ def validate(
 
 
 def process_files(source: Path, output_dir: Path, run_metadata: RunMetadata, parser: DocumentParser, 
-                 chunker: ContentChunker, deduplicator: Deduplicator, config: dict, 
+                 chunker: DocumentChunker, deduplicator: Deduplicator, config: dict, 
                  recursive: bool, file_types: List[str], verbose: bool):
     """Process existing files in the source directory."""
     
@@ -238,7 +238,7 @@ def process_files(source: Path, output_dir: Path, run_metadata: RunMetadata, par
 
 
 async def watch_files(source: Path, output_dir: Path, run_metadata: RunMetadata, parser: DocumentParser,
-                     chunker: ContentChunker, deduplicator: Deduplicator, config: dict, verbose: bool):
+                     chunker: DocumentChunker, deduplicator: Deduplicator, config: dict, verbose: bool):
     """Watch for new files and process them automatically."""
     
     logger.info(f"Starting file watcher for: {source}")

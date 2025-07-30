@@ -117,20 +117,34 @@ def initialize_framework(config: Optional[Config] = None) -> None:
     
     # Set up logging
     from .logging import setup_logging
-    setup_logging(config)
+    setup_logging({
+        'level': config.log_level,
+        'file': config.log_file
+    })
     
     # Initialize storage
-    from .storage import StorageBackend
-    StorageBackend.initialize(config)
+    from .storage import initialize as init_storage
+    init_storage({
+        'storage_backend': config.storage_backend,
+        'storage_path': config.storage_path
+    })
     
     # Initialize component registry
-    from .registry import ComponentRegistry
-    ComponentRegistry.initialize(config)
+    from .registry import initialize as init_registry
+    init_registry({
+        'enable_etx': config.enable_etx,
+        'enable_ml': config.enable_ml,
+        'enable_symbolic': config.enable_symbolic
+    })
     
     # Initialize symbolic system if enabled
     if config.enable_symbolic:
-        from ..symbolic import initialize_symbolic_system
-        initialize_symbolic_system(config)
+        try:
+            from ..symbolic import initialize_symbolic_system
+            initialize_symbolic_system(config)
+        except ImportError:
+            # Symbolic system not available, skip initialization
+            pass
 
 def get_config() -> Config:
     """Get the global configuration instance."""

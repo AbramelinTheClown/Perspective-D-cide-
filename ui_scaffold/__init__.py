@@ -1,37 +1,42 @@
-"""UI Scaffold System for Perspective D<cide>.
+"""
+UI Scaffold System for Perspective D<cide>.
 
-Transforms ASCII face glyphs into complete, responsive web interface scaffolds
-using a five-layer architecture and JSONL streaming format.
+Provides tools for converting ASCII faces and symbolic representations into
+functional UI components and layouts.
 """
 
+# Core scaffold components
 from .face_parser import FaceParser, parse_face_to_scaffold
-from .scaffold_generator import ScaffoldGenerator, FaceToScaffold
-from .renderers import (
-    ReactScaffoldRenderer,
-    VueScaffoldRenderer,
-    ScaffoldRenderer
-)
-from .validators import ScaffoldValidator, ValidationResult
-from .templates import ScaffoldTemplateManager
-from .manager import UIScaffoldManager
+from .scaffold_generator import ScaffoldGenerator
+
+# Renderers
+try:
+    from .renderers import ScaffoldRenderer, RendererConfig, ReactScaffoldRenderer, VueScaffoldRenderer
+except ImportError as e:
+    print(f"Warning: UI scaffold renderers not available: {e}")
+    ScaffoldRenderer = None
+    RendererConfig = None
+    ReactScaffoldRenderer = None
+    VueScaffoldRenderer = None
+
+# Legacy exports for backward compatibility
+try:
+    from .face_parser import FaceToScaffold
+except ImportError:
+    FaceToScaffold = None
 
 __all__ = [
-    # Core parsing and generation
+    # Core components
     'FaceParser',
     'parse_face_to_scaffold',
     'ScaffoldGenerator',
-    'FaceToScaffold',
     
     # Renderers
-    'ReactScaffoldRenderer',
-    'VueScaffoldRenderer', 
     'ScaffoldRenderer',
+    'RendererConfig',
+    'ReactScaffoldRenderer',
+    'VueScaffoldRenderer',
     
-    # Validation and testing
-    'ScaffoldValidator',
-    'ValidationResult',
-    
-    # Templates and management
-    'ScaffoldTemplateManager',
-    'UIScaffoldManager'
+    # Legacy exports
+    'FaceToScaffold'
 ] 

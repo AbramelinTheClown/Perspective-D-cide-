@@ -17,7 +17,7 @@ from pipeline.builders.base import BaseBuilder
 from pipeline.builders.summary_builder import SummaryBuilder
 from pipeline.builders.entities_builder import EntitiesBuilder
 from pipeline.router.llm_router import LLMRouter
-from pipeline.validate.validator import Validator
+from pipeline.validate.validator import OutputValidator as Validator
 from pipeline.monitoring.gpu import GPUMonitor
 
 app = typer.Typer(name="build", help="Build datasets using AI processing")

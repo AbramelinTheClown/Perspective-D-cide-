@@ -1,220 +1,295 @@
 """
-Main ETX framework for emergent taxonomy discovery.
+ETX Framework for Perspective D<cide>.
 
-Provides the core functionality for ingesting content, discovering categories,
-and exporting results using embedding and clustering techniques.
+Main framework for Emergent Taxonomy analysis and content categorization.
 """
 
-import json
-import pandas as pd
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
-from ..core.schemas import ContentItem, CategoryProposal, AnalysisResult
-from ..core.config import get_config
-from .engines import EmbeddingEngine, ClusteringEngine
-from .builders import CategorizationBuilder
+import logging
+from typing import Dict, List, Any, Optional, Union
+from dataclasses import dataclass
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class ETXConfig:
+    """Configuration for ETX framework."""
+    
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    clustering_type: str = "minibatch_kmeans"
+    n_clusters: int = 10
+    min_confidence: float = 0.7
+    min_keywords: int = 3
+    batch_size: int = 1000
+    enable_plugins: bool = True
+
+@dataclass
+class ETXResult:
+    """Result of ETX analysis."""
+    
+    categories: List[Dict[str, Any]]
+    embeddings: Optional[np.ndarray] = None
+    clusters: Optional[np.ndarray] = None
+    metadata: Dict[str, Any] = None
+    
+    def __post_init__(self):
+        if self.metadata is None:
+            self.metadata = {}
 
 class ETXFramework:
-    """
-    Emergent TaXonomy framework for dynamic content categorization.
+    """Main ETX framework for content analysis and categorization."""
     
-    Uses embedding and clustering to discover categories from content
-    without predefined taxonomies.
-    """
-    
-    def __init__(self, project: str, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[ETXConfig] = None):
         """
         Initialize ETX framework.
         
         Args:
-            project: Project name for organizing data
             config: Framework configuration
         """
-        self.project = project
-        self.config = config or get_config().etx_config
+        self.config = config or ETXConfig()
+        self.embedding_engine = None
+        self.clustering_engine = None
+        self.categorization_builder = None
+        self.plugin_manager = None
         
-        # Initialize engines
-        self.embedding_engine = self._create_embedding_engine()
-        self.clustering_engine = self._create_clustering_engine()
-        
-        # Initialize builder
-        self.builder = CategorizationBuilder(self.config)
-        
-        # Storage for content and results
-        self.content_items: List[ContentItem] = []
-        self.categories: List[CategoryProposal] = []
-        self.analysis_results: List[AnalysisResult] = []
-        
-        # Processing state
-        self._embeddings: Optional[List[List[float]]] = None
-        self._clusters: Optional[List[int]] = None
+        self._initialize_components()
     
-    def _create_embedding_engine(self) -> EmbeddingEngine:
-        """Create embedding engine based on configuration."""
-        model_name = self.config.get("embedding_model", "bge-small-en")
-        
+    def _initialize_components(self) -> None:
+        """Initialize framework components."""
         try:
+            # Initialize embedding engine
             from .engines import FastEmbedEngine
-            return FastEmbedEngine(model_name=model_name)
-        except ImportError:
-            # Fallback to simple engine
-            from .engines import SimpleEmbeddingEngine
-            return SimpleEmbeddingEngine()
-    
-    def _create_clustering_engine(self) -> ClusteringEngine:
-        """Create clustering engine based on configuration."""
-        clustering_type = self.config.get("clustering_type", "minibatch_kmeans")
+            self.embedding_engine = FastEmbedEngine(self.config.embedding_model)
+            logger.info(f"Initialized embedding engine: {self.config.embedding_model}")
+        except ImportError as e:
+            logger.warning(f"Could not initialize embedding engine: {e}")
         
         try:
-            from .engines import MiniBatchKMeansEngine
-            return MiniBatchKMeansEngine()
-        except ImportError:
-            # Fallback to simple engine
-            from .engines import SimpleClusteringEngine
-            return SimpleClusteringEngine()
-    
-    def ingest(self, source_path: Union[str, Path], modality: str = "text") -> None:
-        """
-        Ingest content from a source file.
+            # Initialize clustering engine
+            if self.config.clustering_type == "minibatch_kmeans":
+                from .engines import MiniBatchKMeansEngine
+                self.clustering_engine = MiniBatchKMeansEngine(
+                    n_clusters=self.config.n_clusters,
+                    batch_size=self.config.batch_size
+                )
+            elif self.config.clustering_type == "hdbscan":
+                from .engines import HDBSCANEngine
+                self.clustering_engine = HDBSCANEngine()
+            else:
+                from .engines import MiniBatchKMeansEngine
+                self.clustering_engine = MiniBatchKMeansEngine(
+                    n_clusters=self.config.n_clusters
+                )
+            logger.info(f"Initialized clustering engine: {self.config.clustering_type}")
+        except ImportError as e:
+            logger.warning(f"Could not initialize clustering engine: {e}")
         
-        Args:
-            source_path: Path to source file (JSONL format)
-            modality: Content modality (text, image, etc.)
-        """
-        source_path = Path(source_path)
-        
-        if not source_path.exists():
-            raise FileNotFoundError(f"Source file not found: {source_path}")
-        
-        # Read JSONL file
-        with open(source_path, 'r', encoding='utf-8') as f:
-            for line_num, line in enumerate(f, 1):
-                line = line.strip()
-                if line:
-                    try:
-                        data = json.loads(line)
-                        
-                        # Create content item
-                        content_item = ContentItem(
-                            id=data.get('id', f"item_{line_num}"),
-                            content=data.get('text', data.get('content', '')),
-                            metadata={
-                                'source_file': str(source_path),
-                                'line_number': line_num,
-                                'modality': modality,
-                                **data.get('metadata', {})
-                            }
-                        )
-                        
-                        self.content_items.append(content_item)
-                        
-                    except json.JSONDecodeError as e:
-                        print(f"Warning: Invalid JSON at line {line_num}: {e}")
-        
-        print(f"Ingested {len(self.content_items)} content items from {source_path}")
-    
-    def discover(self) -> None:
-        """
-        Discover categories using embedding and clustering.
-        """
-        if not self.content_items:
-            raise ValueError("No content items to process. Call ingest() first.")
-        
-        print("Starting category discovery...")
-        
-        # Extract text content
-        texts = [item.content for item in self.content_items]
-        
-        # Generate embeddings
-        print("Generating embeddings...")
-        self._embeddings = self.embedding_engine.embed(texts)
-        
-        # Perform clustering
-        print("Performing clustering...")
-        self._clusters = self.clustering_engine.cluster(self._embeddings)
-        
-        # Build categories
-        print("Building categories...")
-        self.categories = self.builder.build_categories(
-            content_items=self.content_items,
-            embeddings=self._embeddings,
-            clusters=self._clusters
-        )
-        
-        # Create analysis results
-        self.analysis_results = []
-        for i, item in enumerate(self.content_items):
-            cluster_id = self._clusters[i] if self._clusters else 0
-            
-            # Find category for this cluster
-            category = next((cat for cat in self.categories if cat.metadata.get('cluster_id') == cluster_id), None)
-            
-            result = AnalysisResult(
-                content_id=item.id,
-                analysis_type="categorization",
-                results={
-                    'cluster_id': cluster_id,
-                    'category': category.category_name if category else 'unknown',
-                    'confidence': category.confidence if category else 0.0
-                },
-                confidence=category.confidence if category else 0.0,
-                metadata={
-                    'cluster_id': cluster_id,
-                    'embedding_dim': len(self._embeddings[i]) if self._embeddings else 0
-                }
+        try:
+            # Initialize categorization builder
+            from .builders import CategorizationBuilder
+            self.categorization_builder = CategorizationBuilder(
+                min_confidence=self.config.min_confidence,
+                min_keywords=self.config.min_keywords
             )
-            
-            self.analysis_results.append(result)
+            logger.info("Initialized categorization builder")
+        except ImportError as e:
+            logger.warning(f"Could not initialize categorization builder: {e}")
         
-        print(f"Discovery complete. Found {len(self.categories)} categories.")
+        if self.config.enable_plugins:
+            try:
+                # Initialize plugin manager
+                from .plugins import PluginManager
+                self.plugin_manager = PluginManager()
+                logger.info("Initialized plugin manager")
+            except ImportError as e:
+                logger.warning(f"Could not initialize plugin manager: {e}")
     
-    def export(self, topic: str = "any", as_df: bool = True) -> Union[pd.DataFrame, List[Dict[str, Any]]]:
+    def analyze_content(self, content: List[str]) -> ETXResult:
         """
-        Export analysis results.
+        Analyze content using the ETX framework.
         
         Args:
-            topic: Topic filter (not used in current implementation)
-            as_df: Whether to return as pandas DataFrame
+            content: List of text content to analyze
             
         Returns:
-            Analysis results as DataFrame or list of dictionaries
+            ETXResult with categories and analysis
         """
-        if not self.analysis_results:
-            raise ValueError("No analysis results to export. Call discover() first.")
+        if not content:
+            return ETXResult(categories=[], metadata={"error": "No content provided"})
         
-        # Convert to list of dictionaries
-        results = []
-        for result in self.analysis_results:
-            result_dict = {
-                'content_id': result.content_id,
-                'category': result.results.get('category', 'unknown'),
-                'confidence': result.confidence,
-                'cluster_id': result.results.get('cluster_id', 0),
-                'analysis_type': result.analysis_type,
-                'created_at': result.created_at.isoformat()
+        try:
+            # Step 1: Generate embeddings
+            embeddings = None
+            if self.embedding_engine:
+                embedding_result = self.embedding_engine.embed(content)
+                embeddings = embedding_result.embeddings
+                logger.info(f"Generated embeddings: {embeddings.shape}")
+            
+            # Step 2: Perform clustering
+            clusters = None
+            if self.clustering_engine and embeddings is not None:
+                clustering_result = self.clustering_engine.cluster(embeddings)
+                clusters = clustering_result.labels
+                logger.info(f"Generated clusters: {len(set(clusters))} unique clusters")
+            
+            # Step 3: Build taxonomy
+            categories = []
+            if self.categorization_builder and embeddings is not None and clusters is not None:
+                taxonomy_result = self.categorization_builder.build_taxonomy(
+                    embeddings, clusters, content, clustering_result.centroids
+                )
+                categories = [
+                    {
+                        "id": cat.id,
+                        "name": cat.name,
+                        "description": cat.description,
+                        "keywords": cat.keywords,
+                        "confidence": cat.confidence,
+                        "parent_id": cat.parent_id,
+                        "children": cat.children,
+                        "metadata": cat.metadata
+                    }
+                    for cat in taxonomy_result.categories
+                ]
+                logger.info(f"Built taxonomy: {len(categories)} categories")
+            
+            # Step 4: Run plugins (optional)
+            plugin_results = {}
+            if self.plugin_manager:
+                plugin_results = self.plugin_manager.process_with_plugins(content)
+                logger.info(f"Processed with plugins: {list(plugin_results.keys())}")
+            
+            metadata = {
+                "content_count": len(content),
+                "embedding_model": self.config.embedding_model,
+                "clustering_type": self.config.clustering_type,
+                "n_clusters": self.config.n_clusters,
+                "plugin_results": plugin_results
             }
-            results.append(result_dict)
+            
+            return ETXResult(
+                categories=categories,
+                embeddings=embeddings,
+                clusters=clusters,
+                metadata=metadata
+            )
+            
+        except Exception as e:
+            logger.error(f"ETX analysis failed: {e}")
+            return ETXResult(
+                categories=[],
+                metadata={"error": str(e)}
+            )
+    
+    def get_categories(self, content: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get categories for content.
         
-        if as_df:
-            return pd.DataFrame(results)
+        Args:
+            content: List of text content
+            
+        Returns:
+            List of category dictionaries
+        """
+        result = self.analyze_content(content)
+        return result.categories
+    
+    def get_embeddings(self, content: List[str]) -> Optional[np.ndarray]:
+        """
+        Get embeddings for content.
+        
+        Args:
+            content: List of text content
+            
+        Returns:
+            Embeddings array or None
+        """
+        if not self.embedding_engine:
+            return None
+        
+        try:
+            embedding_result = self.embedding_engine.embed(content)
+            return embedding_result.embeddings
+        except Exception as e:
+            logger.error(f"Embedding generation failed: {e}")
+            return None
+    
+    def get_clusters(self, content: List[str]) -> Optional[np.ndarray]:
+        """
+        Get clusters for content.
+        
+        Args:
+            content: List of text content
+            
+        Returns:
+            Cluster labels array or None
+        """
+        if not self.clustering_engine:
+            return None
+        
+        embeddings = self.get_embeddings(content)
+        if embeddings is None:
+            return None
+        
+        try:
+            clustering_result = self.clustering_engine.cluster(embeddings)
+            return clustering_result.labels
+        except Exception as e:
+            logger.error(f"Clustering failed: {e}")
+            return None
+    
+    def export_results(self, result: ETXResult, format: str = "json") -> str:
+        """
+        Export ETX results to various formats.
+        
+        Args:
+            result: ETX analysis result
+            format: Export format ("json", "csv")
+            
+        Returns:
+            Exported data as string
+        """
+        if format == "json":
+            return self._export_json(result)
+        elif format == "csv":
+            return self._export_csv(result)
         else:
-            return results
+            raise ValueError(f"Unsupported export format: {format}")
     
-    def get_categories(self) -> List[CategoryProposal]:
-        """Get discovered categories."""
-        return self.categories
+    def _export_json(self, result: ETXResult) -> str:
+        """Export results as JSON."""
+        import json
+        
+        data = {
+            "categories": result.categories,
+            "metadata": result.metadata,
+            "has_embeddings": result.embeddings is not None,
+            "has_clusters": result.clusters is not None
+        }
+        
+        return json.dumps(data, indent=2)
     
-    def get_content_by_category(self, category_name: str) -> List[ContentItem]:
-        """Get content items for a specific category."""
-        category_ids = [cat.category_name for cat in self.categories if cat.category_name == category_name]
+    def _export_csv(self, result: ETXResult) -> str:
+        """Export results as CSV."""
+        import csv
+        import io
         
-        if not category_ids:
-            return []
+        output = io.StringIO()
+        writer = csv.writer(output)
         
-        # Find content items in this category
-        content_items = []
-        for i, result in enumerate(self.analysis_results):
-            if result.results.get('category') == category_name:
-                content_items.append(self.content_items[i])
+        # Header
+        writer.writerow(["ID", "Name", "Description", "Keywords", "Confidence", "Parent", "Children"])
         
-        return content_items 
+        # Data
+        for category in result.categories:
+            writer.writerow([
+                category["id"],
+                category["name"],
+                category["description"],
+                "; ".join(category["keywords"]),
+                f"{category['confidence']:.3f}",
+                category["parent_id"] or "",
+                "; ".join(category["children"])
+            ])
+        
+        return output.getvalue() 
